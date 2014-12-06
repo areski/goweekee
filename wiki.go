@@ -1,32 +1,47 @@
 package main
 
 import (
-	// "fmt"
 	"errors"
 	"flag"
+	"fmt"
+	"gopkg.in/yaml.v2"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 )
 
 var (
-	addr = flag.Bool("addr", false, "find open address and print to final-port.txt")
+	addr       = flag.Bool("addr", false, "find open address and print to final-port.txt")
+	configfile = flag.String("configfile", "config.yaml", "path and filename of the config file")
 )
+
+type Config struct {
+	// First letter of variables need to be capital letter
+	Template_directory string
+	Data_directory     string
+}
+
+var config Config
+
+// config.Data_directory
+var TMPL_DIR = "./templates/"
+var DATA_DIR = "./data/"
 
 type Page struct {
 	Title string
 	Body  []byte
 }
 
-var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
+var templates *template.Template
 
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 func (p *Page) save() error {
-	filename := p.Title + ".txt"
+	filename := DATA_DIR + p.Title + ".txt"
 	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
@@ -40,7 +55,7 @@ func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
 }
 
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
+	err := templates.ExecuteTemplate(w, TMPL_DIR+tmpl+".html", p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -59,7 +74,7 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 // }
 
 func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
+	filename := DATA_DIR + title + ".txt"
 	body, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -108,10 +123,51 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 }
 
 func main() {
+
+	// var templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html"))
+	templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html"))
+
+	fmt.Println("templates")
+	fmt.Println(templates)
+
+	// t, err := template.New("foo").Parse(`{{define "T"}}Hello, {{.}}!{{end}}`)
+	// err = t.ExecuteTemplate(out, "T", "<script>alert('you have been pwned')</script>")
+
+	// var out []byte
+	p := &Page{Title: "title", Body: []byte("super body")}
+	err := templates.ExecuteTemplate(os.Stdout, "./templates/view.html", p)
+
+	fmt.Println("err")
+	fmt.Println(err)
+
+	return
+
 	flag.Parse()
+	// prepare handler
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
+
+	config = Config{}
+
+	// Load configfile and configure template
+	if len(*configfile) > 0 {
+		fmt.Println("config file => " + *configfile)
+
+		source, err := ioutil.ReadFile(*configfile)
+		fmt.Println(string(source))
+		if err != nil {
+			panic(err)
+		}
+
+		err = yaml.Unmarshal(source, &config)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("--- t:\n%v\n\n", config)
+		fmt.Printf("--- t dump:\n%s\n\n", string(config.Data_directory))
+		// file, err := y
+	}
 
 	if *addr {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
