@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 )
 
@@ -55,7 +54,7 @@ func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
 }
 
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, TMPL_DIR+tmpl+".html", p)
+	err := templates.ExecuteTemplate(w, tmpl+".html", p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -123,25 +122,6 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 }
 
 func main() {
-
-	// var templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html"))
-	templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html"))
-
-	fmt.Println("templates")
-	fmt.Println(templates)
-
-	// t, err := template.New("foo").Parse(`{{define "T"}}Hello, {{.}}!{{end}}`)
-	// err = t.ExecuteTemplate(out, "T", "<script>alert('you have been pwned')</script>")
-
-	// var out []byte
-	p := &Page{Title: "title", Body: []byte("super body")}
-	err := templates.ExecuteTemplate(os.Stdout, "./templates/view.html", p)
-
-	fmt.Println("err")
-	fmt.Println(err)
-
-	return
-
 	flag.Parse()
 	// prepare handler
 	http.HandleFunc("/view/", makeHandler(viewHandler))
@@ -153,21 +133,21 @@ func main() {
 	// Load configfile and configure template
 	if len(*configfile) > 0 {
 		fmt.Println("config file => " + *configfile)
-
 		source, err := ioutil.ReadFile(*configfile)
 		fmt.Println(string(source))
 		if err != nil {
 			panic(err)
 		}
-
+		// decode the yaml source
 		err = yaml.Unmarshal(source, &config)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("--- t:\n%v\n\n", config)
-		fmt.Printf("--- t dump:\n%s\n\n", string(config.Data_directory))
-		// file, err := y
+		TMPL_DIR = config.Template_directory
+		DATA_DIR = config.Data_directory
 	}
+
+	templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html"))
 
 	if *addr {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
