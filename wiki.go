@@ -1,7 +1,7 @@
 package main
 
 import (
-	"errors"
+	// "errors"
 	"flag"
 	"fmt"
 	"gopkg.in/yaml.v2"
@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	// "strings"
 )
 
 var (
@@ -37,21 +38,21 @@ type Page struct {
 
 var templates *template.Template
 
-var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
+var validPath = regexp.MustCompile("^/(edit|save|view|list)/([a-zA-Z0-9]+)$")
 
 func (p *Page) save() error {
 	filename := DATA_DIR + p.Title + ".txt"
 	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
-func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
-	m := validPath.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		http.NotFound(w, r)
-		return "", errors.New("Invalid Page Title")
-	}
-	return m[2], nil
-}
+// func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
+// 	m := validPath.FindStringSubmatch(r.URL.Path)
+// 	if m == nil {
+// 		http.NotFound(w, r)
+// 		return "", errors.New("Invalid Page Title")
+// 	}
+// 	return m[2], nil
+// }
 
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
@@ -109,6 +110,27 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
+func listHandler(w http.ResponseWriter, r *http.Request, title string) {
+	datafiles, err := ioutil.ReadDir(DATA_DIR)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// layoutData := struct {
+	// 	datafiles []string
+	// }
+	for _, f := range datafiles {
+		fmt.Println(f.Name())
+
+	}
+
+	// renderTemplate(w, "list", datafiles)
+	err = templates.ExecuteTemplate(w, "list.html", datafiles)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // Similar to Decorator in Python
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -124,6 +146,7 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 func main() {
 	flag.Parse()
 	// prepare handler
+	http.HandleFunc("/list/", makeHandler(listHandler))
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
@@ -147,7 +170,7 @@ func main() {
 		DATA_DIR = config.Data_directory
 	}
 
-	templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html"))
+	templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html", TMPL_DIR+"list.html"))
 
 	if *addr {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
