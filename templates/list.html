@@ -1,0 +1,5 @@
+<h1>Pages List</h1>
+
+{{range .}}
+<p>Page {{.Name }} - [<a href="/view/{{.Name}}">view</a>] - [<a href="/edit/{{.Name}}">edit</a>]</p>
+{{end}}
