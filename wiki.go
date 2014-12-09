@@ -3,12 +3,12 @@ package main
 import (
 	// "errors"
 	// "strings"
+	// "io"
 	"flag"
 	"fmt"
 	"github.com/justinas/alice"
 	"gopkg.in/yaml.v2"
 	"html/template"
-	// "io"
 	"io/ioutil"
 	"log"
 	"net"
