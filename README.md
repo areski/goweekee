@@ -7,7 +7,7 @@ It's a playground for Go - building a simple wiki
 TODO
 ----
 
-[] Add logging
+- [ ] Add logging
 [] Use template Engine
 [] Use Pat Muxer for Net library: https://github.com/bmizerany/pat
 [] Add Twitter bootstrap
