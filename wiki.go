@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"runtime/debug"
 	"time"
 )
 
@@ -90,10 +91,15 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+func editHandler(w http.ResponseWriter, r *http.Request) {
+	title := context.Get(r, "title")
+	p, err := loadPage(title.(string))
+	if title == nil || title.(string) == "" {
+		http.Redirect(w, r, "/list/", http.StatusFound)
+		return
+	}
 	if err != nil {
-		p = &Page{Title: title}
+		p = &Page{Title: title.(string)}
 	}
 	renderTemplate(w, "edit", p)
 }
@@ -187,7 +193,8 @@ func recoverHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("panic: %+v", err)
+				log.Printf("[!PANIC!] %+v", err)
+				log.Printf("%s: %s", err, debug.Stack()) // line 20
 				http.Error(w, http.StatusText(500), 500)
 			}
 		}()
@@ -219,15 +226,17 @@ func recoverHandler(next http.Handler) http.Handler {
 func main() {
 	flag.Parse()
 
-	commonHandlers := alice.New(context.ClearHandler, loggingHandler, recoverHandler)
+	// commonHandlers := alice.New(context.ClearHandler, loggingHandler, recoverHandler)
+	commonHandlers := alice.New(context.ClearHandler, loggingHandler)
+
 	// http.Handle("/admin", commonHandlers.Append(authHandler).ThenFunc(adminHandler))
-	http.Handle("/about", commonHandlers.ThenFunc(aboutHandler))
 	http.Handle("/", commonHandlers.ThenFunc(indexHandler))
+	http.Handle("/about", commonHandlers.ThenFunc(aboutHandler))
 
 	http.Handle("/list/", commonHandlers.ThenFunc(listHandler))
 	http.Handle("/view/", commonHandlers.Append(parseTitleHandler).ThenFunc(viewHandler))
+	http.Handle("/edit/", commonHandlers.Append(parseTitleHandler).ThenFunc(editHandler))
 
-	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
 
 	config = Config{}

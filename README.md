@@ -10,9 +10,9 @@ TODO
 ----
 
 - [x] Add Middleware
-- [ ] Add logging
-- [ ] Use template Engine (Mmustache / Pongo2 / Amber)
-- [ ] Use Pat Muxer for Net library: https://github.com/bmizerany/pat
+- [x] Add logging
+- [ ] Use Gorilla/mux to route requests
+- [ ] Use template Engine (Mustache / Pongo2 / Amber)
 - [ ] Add Twitter bootstrap
 - [ ] Define more complex section for page content
 - [ ] Use web framework (Martini / Gorilla / Goji)
