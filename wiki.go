@@ -2,16 +2,19 @@ package main
 
 import (
 	// "errors"
+	// "strings"
 	"flag"
 	"fmt"
+	"github.com/justinas/alice"
 	"gopkg.in/yaml.v2"
 	"html/template"
+	// "io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"regexp"
-	// "strings"
+	"time"
 )
 
 var (
@@ -38,7 +41,7 @@ type Page struct {
 
 var templates *template.Template
 
-var validPath = regexp.MustCompile("^/(edit|save|view|list)/([a-zA-Z0-9]+)$")
+var validPath = regexp.MustCompile("^/(edit|save|view|list)/([a-zA-Z0-9]*)$")
 
 func (p *Page) save() error {
 	filename := DATA_DIR + p.Title + ".txt"
@@ -121,7 +124,6 @@ func listHandler(w http.ResponseWriter, r *http.Request, title string) {
 	// }
 	for _, f := range datafiles {
 		fmt.Println(f.Name())
-
 	}
 
 	// renderTemplate(w, "list", datafiles)
@@ -143,8 +145,44 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 	}
 }
 
+func loggingHandler(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		t1 := time.Now()
+		next.ServeHTTP(w, r)
+		t2 := time.Now()
+		log.Printf("[%s] %q %v\n", r.Method, r.URL.String(), t2.Sub(t1))
+	}
+	return http.HandlerFunc(fn)
+}
+
+func aboutHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "You are on the about page.")
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Welcome to Weekee!")
+}
+
+func recoverHandler(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("panic: %+v", err)
+				http.Error(w, http.StatusText(500), 500)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
+
 func main() {
 	flag.Parse()
+
+	commonHandlers := alice.New(loggingHandler, recoverHandler)
+	http.Handle("/about", commonHandlers.ThenFunc(aboutHandler))
+	http.Handle("/", commonHandlers.ThenFunc(indexHandler))
+
 	// prepare handler
 	http.HandleFunc("/list/", makeHandler(listHandler))
 	http.HandleFunc("/view/", makeHandler(viewHandler))
