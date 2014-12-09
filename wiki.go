@@ -107,6 +107,22 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 	renderTemplate(w, "view", p)
 }
 
+func newviewHandler(w http.ResponseWriter, r *http.Request) {
+	// title, ok := context.GetOk(r, "title")
+	title := context.Get(r, "title")
+	log.Printf("[newviewHandler] %v\n", title)
+	p, err := loadPage(title.(string))
+	if title.(string) == "" {
+		http.Redirect(w, r, "/list/", http.StatusFound)
+		return
+	}
+	if err != nil {
+		http.Redirect(w, r, "/edit/"+title.(string), http.StatusFound)
+		return
+	}
+	renderTemplate(w, "view", p)
+}
+
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	body := r.FormValue("body")
 	p := &Page{Title: title, Body: []byte(body)}
@@ -158,6 +174,21 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 		}
 		fn(w, r, m[2])
 	}
+}
+
+func parseTitleHandler(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		m := validPath.FindStringSubmatch(r.URL.Path)
+		if m == nil {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("[parseTitleHandler] %v\n", m[2])
+		context.Set(r, "title", m[2])
+		// next.ServeHTTP()(w, r)
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
 }
 
 func loggingHandler(next http.Handler) http.Handler {
@@ -223,7 +254,9 @@ func main() {
 
 	// prepare handler
 	http.HandleFunc("/list/", makeHandler(listHandler))
-	http.HandleFunc("/view/", makeHandler(viewHandler))
+	// http.HandleFunc("/view/", makeHandler(viewHandler))
+	http.Handle("/view/", commonHandlers.Append(parseTitleHandler).ThenFunc(newviewHandler))
+
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
 
