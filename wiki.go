@@ -6,6 +6,7 @@ import (
 	// "io"
 	"flag"
 	"fmt"
+	"github.com/gorilla/context"
 	"github.com/justinas/alice"
 	"gopkg.in/yaml.v2"
 	"html/template"
@@ -16,6 +17,10 @@ import (
 	"regexp"
 	"time"
 )
+
+type key int
+
+const MyKey key = 0
 
 var (
 	addr       = flag.Bool("addr", false, "find open address and print to final-port.txt")
@@ -119,14 +124,24 @@ func listHandler(w http.ResponseWriter, r *http.Request, title string) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// layoutData := struct {
-	// 	datafiles []string
-	// }
 	for _, f := range datafiles {
 		fmt.Println(f.Name())
 	}
+	err = templates.ExecuteTemplate(w, "list.html", datafiles)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
 
-	// renderTemplate(w, "list", datafiles)
+func newlistHandler(w http.ResponseWriter, r *http.Request) {
+	datafiles, err := ioutil.ReadDir(DATA_DIR)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, f := range datafiles {
+		fmt.Println(f.Name())
+	}
 	err = templates.ExecuteTemplate(w, "list.html", datafiles)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -176,12 +191,35 @@ func recoverHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
+// func authHandler(next http.Handler) http.Handler {
+// 	fn := func(w http.ResponseWriter, r *http.Request) {
+// 		authToken := r.Header().Get("Authorization")
+// 		user, err := getUser(authToken)
+
+// 		if err != nil {
+// 			http.Error(w.http.StatusText(401), 401)
+// 			return
+// 		}
+// 		context.Set(r, "user", user)
+// 		next.ServeHTTP()(w, r)
+// 	}
+// 	return http.HandleFunc(fn)
+// }
+
+// func adminHandler(w http.ResponseWriter, r *http.Requests) {
+// 	user := context.Get(r, "user")
+// 	json.NewEncoder(w).Encode(user)
+// }
+
 func main() {
 	flag.Parse()
 
-	commonHandlers := alice.New(loggingHandler, recoverHandler)
+	commonHandlers := alice.New(context.ClearHandler, loggingHandler, recoverHandler)
+	// http.Handle("/admin", commonHandlers.Append(authHandler).ThenFunc(adminHandler))
 	http.Handle("/about", commonHandlers.ThenFunc(aboutHandler))
 	http.Handle("/", commonHandlers.ThenFunc(indexHandler))
+
+	http.Handle("/newlist/", commonHandlers.ThenFunc(newlistHandler))
 
 	// prepare handler
 	http.HandleFunc("/list/", makeHandler(listHandler))
