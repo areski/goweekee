@@ -98,19 +98,8 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	renderTemplate(w, "edit", p)
 }
 
-func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
-	if err != nil {
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
-		return
-	}
-	renderTemplate(w, "view", p)
-}
-
-func newviewHandler(w http.ResponseWriter, r *http.Request) {
-	// title, ok := context.GetOk(r, "title")
+func viewHandler(w http.ResponseWriter, r *http.Request) {
 	title := context.Get(r, "title")
-	log.Printf("[newviewHandler] %v\n", title)
 	p, err := loadPage(title.(string))
 	if title.(string) == "" {
 		http.Redirect(w, r, "/list/", http.StatusFound)
@@ -134,22 +123,7 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
-func listHandler(w http.ResponseWriter, r *http.Request, title string) {
-	datafiles, err := ioutil.ReadDir(DATA_DIR)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	for _, f := range datafiles {
-		fmt.Println(f.Name())
-	}
-	err = templates.ExecuteTemplate(w, "list.html", datafiles)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func newlistHandler(w http.ResponseWriter, r *http.Request) {
+func listHandler(w http.ResponseWriter, r *http.Request) {
 	datafiles, err := ioutil.ReadDir(DATA_DIR)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -250,12 +224,8 @@ func main() {
 	http.Handle("/about", commonHandlers.ThenFunc(aboutHandler))
 	http.Handle("/", commonHandlers.ThenFunc(indexHandler))
 
-	http.Handle("/newlist/", commonHandlers.ThenFunc(newlistHandler))
-
-	// prepare handler
-	http.HandleFunc("/list/", makeHandler(listHandler))
-	// http.HandleFunc("/view/", makeHandler(viewHandler))
-	http.Handle("/view/", commonHandlers.Append(parseTitleHandler).ThenFunc(newviewHandler))
+	http.Handle("/list/", commonHandlers.ThenFunc(listHandler))
+	http.Handle("/view/", commonHandlers.Append(parseTitleHandler).ThenFunc(viewHandler))
 
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
