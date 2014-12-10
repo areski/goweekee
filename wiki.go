@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/gorilla/context"
+	// "github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"gopkg.in/yaml.v2"
 	"html/template"
@@ -118,15 +119,16 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, "view", p)
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
+func saveHandler(w http.ResponseWriter, r *http.Request) {
+	title := context.Get(r, "title")
 	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
+	p := &Page{Title: title.(string), Body: []byte(body)}
 	err := p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+	http.Redirect(w, r, "/view/"+title.(string), http.StatusFound)
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {
@@ -135,9 +137,9 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	for _, f := range datafiles {
-		fmt.Println(f.Name())
-	}
+	// for _, f := range datafiles {
+	// 	fmt.Println(f.Name())
+	// }
 	err = templates.ExecuteTemplate(w, "list.html", datafiles)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -223,6 +225,16 @@ func recoverHandler(next http.Handler) http.Handler {
 // 	json.NewEncoder(w).Encode(user)
 // }
 
+// func main() {
+//   rtr := mux.NewRouter()
+//   rtr.HandleFunc("/user/{name:[a-z]+}/profile", profile).Methods("GET")
+
+//   http.Handle("/", rtr)
+
+//   log.Println("Listening...")
+//   http.ListenAndServe(":3000", nil)
+// }
+
 func main() {
 	flag.Parse()
 
@@ -236,8 +248,7 @@ func main() {
 	http.Handle("/list/", commonHandlers.ThenFunc(listHandler))
 	http.Handle("/view/", commonHandlers.Append(parseTitleHandler).ThenFunc(viewHandler))
 	http.Handle("/edit/", commonHandlers.Append(parseTitleHandler).ThenFunc(editHandler))
-
-	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.Handle("/save/", commonHandlers.Append(parseTitleHandler).ThenFunc(saveHandler))
 
 	config = Config{}
 
