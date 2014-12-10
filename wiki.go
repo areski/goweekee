@@ -7,7 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/gorilla/context"
-	// "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"gopkg.in/yaml.v2"
 	"html/template"
@@ -137,30 +137,22 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// for _, f := range datafiles {
-	// 	fmt.Println(f.Name())
-	// }
+	for _, f := range datafiles {
+		fmt.Println(f.Name())
+	}
 	err = templates.ExecuteTemplate(w, "list.html", datafiles)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
+	fmt.Println(err)
 
-// Similar to Decorator in Python
-func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := validPath.FindStringSubmatch(r.URL.Path)
-		if m == nil {
-			http.NotFound(w, r)
-			return
-		}
-		fn(w, r, m[2])
-	}
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// }
+	fmt.Fprintf(w, "You are on the about page.")
 }
 
 func parseTitleHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		m := validPath.FindStringSubmatch(r.URL.Path)
+		fmt.Println(r.URL.Path)
 		if m == nil {
 			http.NotFound(w, r)
 			return
@@ -185,10 +177,6 @@ func loggingHandler(next http.Handler) http.Handler {
 
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "You are on the about page.")
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to Weekee!")
 }
 
 func recoverHandler(next http.Handler) http.Handler {
@@ -225,30 +213,18 @@ func recoverHandler(next http.Handler) http.Handler {
 // 	json.NewEncoder(w).Encode(user)
 // }
 
-// func main() {
-//   rtr := mux.NewRouter()
-//   rtr.HandleFunc("/user/{name:[a-z]+}/profile", profile).Methods("GET")
-
-//   http.Handle("/", rtr)
-
-//   log.Println("Listening...")
-//   http.ListenAndServe(":3000", nil)
-// }
-
 func main() {
 	flag.Parse()
 
-	// commonHandlers := alice.New(context.ClearHandler, loggingHandler, recoverHandler)
+	rtr := mux.NewRouter()
 	commonHandlers := alice.New(context.ClearHandler, loggingHandler)
+	rtr.Handle("/", commonHandlers.ThenFunc(listHandler)).Methods("GET")
+	rtr.Handle("/about", commonHandlers.ThenFunc(aboutHandler)).Methods("GET")
 
-	// http.Handle("/admin", commonHandlers.Append(authHandler).ThenFunc(adminHandler))
-	http.Handle("/", commonHandlers.ThenFunc(indexHandler))
-	http.Handle("/about", commonHandlers.ThenFunc(aboutHandler))
-
-	http.Handle("/list/", commonHandlers.ThenFunc(listHandler))
-	http.Handle("/view/", commonHandlers.Append(parseTitleHandler).ThenFunc(viewHandler))
-	http.Handle("/edit/", commonHandlers.Append(parseTitleHandler).ThenFunc(editHandler))
-	http.Handle("/save/", commonHandlers.Append(parseTitleHandler).ThenFunc(saveHandler))
+	rtr.Handle("/view/{title}", commonHandlers.Append(parseTitleHandler).ThenFunc(viewHandler))
+	rtr.Handle("/edit/{title}", commonHandlers.Append(parseTitleHandler).ThenFunc(editHandler))
+	rtr.Handle("/save/{title}", commonHandlers.Append(parseTitleHandler).ThenFunc(saveHandler))
+	http.Handle("/", rtr)
 
 	config = Config{}
 
@@ -284,5 +260,7 @@ func main() {
 		s.Serve(l)
 		return
 	}
+
+	log.Println("Listening...")
 	http.ListenAndServe(":8080", nil)
 }

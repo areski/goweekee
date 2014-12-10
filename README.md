@@ -10,12 +10,11 @@ TODO
 ----
 
 - [x] Add Middleware
-- [x] Add logging
-- [ ] Use Gorilla/mux to route requests
+- [x] Add logging via loggingHandler
+- [x] Use Gorilla/mux to route requests
 - [ ] Use template Engine (Mustache / Pongo2 / Amber)
 - [ ] Add Twitter bootstrap
 - [ ] Define more complex section for page content
-- [ ] Use web framework (Martini / Gorilla / Goji)
-- [ ] MuxHandler to logs requests
-- [ ] Implement caching
+- [x] Use web framework (Gorilla)
+- [ ] Implement page caching / use boltdb
 - [ ] Add Grace https://github.com/facebookgo/grace
