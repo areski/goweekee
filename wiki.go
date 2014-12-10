@@ -20,15 +20,12 @@ import (
 	"time"
 )
 
-type key int
-
-const MyKey key = 0
-
 var (
 	addr       = flag.Bool("addr", false, "find open address and print to final-port.txt")
 	configfile = flag.String("configfile", "config.yaml", "path and filename of the config file")
 )
 
+// Hold the structure for the wiki configuration
 type Config struct {
 	// First letter of variables need to be capital letter
 	Template_directory string
@@ -37,10 +34,11 @@ type Config struct {
 
 var config Config
 
-// config.Data_directory
-var TMPL_DIR = "./templates/"
+// Default Template and Data directory
+var TEMPLATE_DIR = "./templates/"
 var DATA_DIR = "./data/"
 
+// Hold the structure for the page configuration
 type Page struct {
 	Title string
 	Body  []byte
@@ -93,42 +91,51 @@ func loadPage(title string) (*Page, error) {
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request) {
-	title := context.Get(r, "title")
-	p, err := loadPage(title.(string))
-	if title == nil || title.(string) == "" {
+	vars := mux.Vars(r)
+	title := vars["title"]
+	// gettitle := context.Get(r, "title")
+	// title := gettitle.(string)
+	p, err := loadPage(title)
+	if title == "" {
 		http.Redirect(w, r, "/list/", http.StatusFound)
 		return
 	}
 	if err != nil {
-		p = &Page{Title: title.(string)}
+		p = &Page{Title: title}
 	}
 	renderTemplate(w, "edit", p)
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
-	title := context.Get(r, "title")
-	p, err := loadPage(title.(string))
-	if title.(string) == "" {
+	vars := mux.Vars(r)
+	title := vars["title"]
+	// gettitle := context.Get(r, "title")
+	// title := gettitle.(string)
+	if title == "" {
 		http.Redirect(w, r, "/list/", http.StatusFound)
 		return
 	}
+	p, err := loadPage(title)
 	if err != nil {
-		http.Redirect(w, r, "/edit/"+title.(string), http.StatusFound)
+		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 		return
 	}
 	renderTemplate(w, "view", p)
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request) {
-	title := context.Get(r, "title")
+	vars := mux.Vars(r)
+	title := vars["title"]
+	// gettitle := context.Get(r, "title")
+	// title := gettitle.(string)
 	body := r.FormValue("body")
-	p := &Page{Title: title.(string), Body: []byte(body)}
+	p := &Page{Title: title, Body: []byte(body)}
 	err := p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/view/"+title.(string), http.StatusFound)
+	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {
@@ -214,8 +221,10 @@ func recoverHandler(next http.Handler) http.Handler {
 // }
 
 func main() {
+	// Parse CLI
 	flag.Parse()
 
+	// implement request router and dispatcher.
 	rtr := mux.NewRouter()
 	commonHandlers := alice.New(context.ClearHandler, loggingHandler)
 	rtr.Handle("/", commonHandlers.ThenFunc(listHandler)).Methods("GET")
@@ -241,13 +250,19 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		TMPL_DIR = config.Template_directory
+		// Change global Tempalte & Data vars
+		TEMPLATE_DIR = config.Template_directory
 		DATA_DIR = config.Data_directory
+
+		// templates = template.Must(template.ParseFiles(TEMPLATE_DIR+"edit.html", TEMPLATE_DIR+"view.html", TEMPLATE_DIR+"list.html"))
+		templates = template.Must(template.ParseGlob(TEMPLATE_DIR + "*.html"))
+	} else {
+		templates = template.Must(template.ParseGlob(TEMPLATE_DIR + "*.html"))
 	}
 
-	templates = template.Must(template.ParseFiles(TMPL_DIR+"edit.html", TMPL_DIR+"view.html", TMPL_DIR+"list.html"))
-
+	// set command line "addr" parameter
 	if *addr {
+		// if addr is set we will find open address and print to final-port.txt
 		l, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			log.Fatal(err)

@@ -15,6 +15,7 @@ TODO
 - [ ] Use template Engine (Mustache / Pongo2 / Amber)
 - [ ] Add Twitter bootstrap
 - [ ] Define more complex section for page content
+- [ ] Json format to store page
 - [x] Use web framework (Gorilla)
 - [ ] Implement page caching / use boltdb
 - [ ] Add Grace https://github.com/facebookgo/grace
